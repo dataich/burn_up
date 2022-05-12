@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# BurnUp
+.env
+*.freezed.dart
+*.g.dart
+
+
