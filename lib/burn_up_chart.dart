@@ -1,3 +1,4 @@
+import 'package:burn_up/burn_up_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 
@@ -13,6 +14,18 @@ class BurnUpChart extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Burn Up'),
+          actions: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const BurnUpSettings())
+                );
+              },
+            ),
+        ]
       ),
       body: StreamBuilder<BurnUpData>(
           stream: bloc.onFetched,
@@ -38,6 +51,12 @@ class BurnUpChart extends StatelessWidget {
                           columns: const <DataColumn>[
                             DataColumn(
                               label: Text(
+                                '',
+                                style: TextStyle(fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
                                 'Name',
                                 style: TextStyle(fontStyle: FontStyle.italic),
                               ),
@@ -57,12 +76,13 @@ class BurnUpChart extends StatelessWidget {
                           ],
                           rows: List<DataRow>.generate(backlogIssuesWithMilestones.length, (index) {
                             final iSelected = snapshot.data?.sprintName == backlogIssuesWithMilestones[index].milestone.name;
-                            final style = iSelected ? const TextStyle(fontWeight: FontWeight.bold) : const TextStyle(fontWeight: FontWeight.normal);
+                            final selectedStyle = iSelected ? const TextStyle(fontWeight: FontWeight.bold) : const TextStyle(fontWeight: FontWeight.normal);
                             return DataRow(
                               cells: <DataCell>[
-                                DataCell(Text(backlogIssuesWithMilestones[index].milestone.name, style: style)),
-                                DataCell(Text(backlogIssuesWithMilestones[index].sprintStoryPoints.toString(), style: style)),
-                                DataCell(Text(backlogIssuesWithMilestones[index].totalStoryPoints.toString(), style: style)),
+                                DataCell(Text(backlogIssuesWithMilestones[index].isForecast ? "🏃‍♂️️" : "")),
+                                DataCell(Text(backlogIssuesWithMilestones[index].milestone.name, style: selectedStyle)),
+                                DataCell(Text(backlogIssuesWithMilestones[index].sprintStoryPoints.toString(), style: selectedStyle)),
+                                DataCell(Text(backlogIssuesWithMilestones[index].totalStoryPoints.toString(), style: selectedStyle)),
                               ],
                             );
                           }),

@@ -5,8 +5,8 @@ import 'package:burn_up/entities/backlog_milestone.dart';
 import 'package:burn_up/repositories/backlog_repository.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 
 class BurnUpBloc {
   static const releaseMilestoneKeyword = "Release";
@@ -42,10 +42,10 @@ class BurnUpBloc {
     final milestones = await _backlogRepository.fetchMilestones();
     final issueTypes = await _backlogRepository.fetchIssueTypes();
 
-    String issueTypeName = dotenv.get('BACKLOG_ISSUE_TYPE_NAME');
+    String issueTypeName = Settings.getValue("issueTypeName", "");
     BacklogIssueType? issueType = _getIssueTypeByName(issueTypes, issueTypeName);
 
-    String milestonePrefix = dotenv.get('BACKLOG_MILESTONE_PREFIX');
+    String milestonePrefix = Settings.getValue("milestonePrefix", "");
     BacklogMilestone? releaseMilestone = _getReleaseMilestone(milestones, milestonePrefix);
 
     final issues = await _backlogRepository.fetchIssues(project.id, issueType?.id ?? 0, releaseMilestone?.id ?? 0);
@@ -59,7 +59,7 @@ class BurnUpBloc {
 
   List<BacklogIssuesWithMilestone> _createBacklogIssuesWithMilestones(List<BacklogIssue> issues, List<BacklogMilestone> milestones, BacklogMilestone releaseMilestone) {
     final List<BacklogIssuesWithMilestone> backlogIssuesWithMilestones = milestones.map((milestone) {
-      return BacklogIssuesWithMilestone(milestone, [], 0, 0);
+      return BacklogIssuesWithMilestone(milestone, [], 0, 0, false);
     }).toList();
 
     for (var issue in issues) {
@@ -74,22 +74,24 @@ class BurnUpBloc {
     backlogIssuesWithMilestones.sort((a, b) => a.milestone.releaseDueDate?.compareTo(b.milestone.releaseDueDate ?? DateTime.now()) ?? 0);
 
     int totalStoryPoint = 0;
-    final velocityByLast3Sprints = (backlogIssuesWithMilestones.reversed.take(3).fold<int>(0, (previousValue, milestone) => previousValue + (milestone.issues.fold<int>(0, (previousValue, issue) => previousValue + (issue.estimatedHours ?? 0)))) / 3).floor();
     return backlogIssuesWithMilestones.map((backlogIssuesWithMilestone) {
-      final sprintStoryPoints = backlogIssuesWithMilestone.issues.fold<int>(0, (previousValue, issue) => previousValue + (issue.estimatedHours ?? 0));
-      totalStoryPoint += (sprintStoryPoints > 0 ? sprintStoryPoints : velocityByLast3Sprints);
+      final completedStoryPoints = backlogIssuesWithMilestone.issues.fold<int>(0, (previousValue, issue) => previousValue + (issue.estimatedHours ?? 0));
+      final isForecast = completedStoryPoints == 0;
+      final velocityByLast3Sprints = (backlogIssuesWithMilestones.reversed.skipWhile((b) => b.issues.isEmpty).take(3).fold<int>(0, (previousValue, milestone) => previousValue + (milestone.issues.fold<int>(0, (previousValue, issue) => previousValue + (issue.estimatedHours ?? 0)))) / 3).floor();
+      final sprintStoryPoints = (isForecast ? velocityByLast3Sprints : completedStoryPoints);
+      totalStoryPoint += sprintStoryPoints;
 
-      return BacklogIssuesWithMilestone(backlogIssuesWithMilestone.milestone, backlogIssuesWithMilestone.issues, sprintStoryPoints, totalStoryPoint);
+      return BacklogIssuesWithMilestone(backlogIssuesWithMilestone.milestone, backlogIssuesWithMilestone.issues, sprintStoryPoints, totalStoryPoint, isForecast);
     }).toList();
   }
 
   List<TimeSeriesStoryPoints> _createTimeSeriesStoryPointsCompletedPointsData(List<BacklogIssuesWithMilestone> backlogIssuesWithMilestones) {
     List<TimeSeriesStoryPoints> timeSeriesStoryPointsList = backlogIssuesWithMilestones.map((backlogIssuesWithMilestone) {
       BacklogMilestone milestone = backlogIssuesWithMilestone.milestone;
-      return TimeSeriesStoryPoints(milestone.releaseDueDate ?? DateTime.now(), backlogIssuesWithMilestone.totalStoryPoints, milestone.name);
+      return TimeSeriesStoryPoints(milestone.releaseDueDate ?? DateTime.now(), backlogIssuesWithMilestone.totalStoryPoints, milestone.name, backlogIssuesWithMilestone.isForecast);
     }).toList();
 
-    timeSeriesStoryPointsList.insert(0, TimeSeriesStoryPoints(backlogIssuesWithMilestones.first.milestone.startDate ?? DateTime.now(), 0, ""));
+    timeSeriesStoryPointsList.insert(0, TimeSeriesStoryPoints(backlogIssuesWithMilestones.first.milestone.startDate ?? DateTime.now(), 0, "", false));
 
     return timeSeriesStoryPointsList;
   }
@@ -98,15 +100,13 @@ class BurnUpBloc {
     final totalsPoint = issues.fold<int>(0, (previousValue, issue) => previousValue + (issue.estimatedHours ?? 0));
 
     return [
-      TimeSeriesStoryPoints(milestones.first.startDate ?? DateTime.now(), totalsPoint, null),
-      TimeSeriesStoryPoints(milestones.last.releaseDueDate ?? DateTime.now(), totalsPoint, null),
+      TimeSeriesStoryPoints(milestones.first.startDate ?? DateTime.now(), totalsPoint, null, false),
+      TimeSeriesStoryPoints(milestones.last.releaseDueDate ?? DateTime.now(), totalsPoint, null, false),
     ];
   }
 
   List<BacklogMilestone> _getSortedSprintMilestones(List<BacklogMilestone> milestones, String milestonePrefix) {
     final sprintMilestones = milestones.where((milestone) {
-      print(milestone.startDate);
-      print(milestone.releaseDueDate);
       return milestone.name.startsWith(milestonePrefix) &&
           milestone.name.contains(sprintMilestoneKeyword) &&
           milestone.startDate != null &&
@@ -158,8 +158,9 @@ class TimeSeriesStoryPoints {
   final DateTime time;
   final int storyPoints;
   final String? sprintName;
+  final bool isForecast;
 
-  TimeSeriesStoryPoints(this.time, this.storyPoints, this.sprintName);
+  TimeSeriesStoryPoints(this.time, this.storyPoints, this.sprintName, this.isForecast);
 }
 
 class BurnUpData {
@@ -174,6 +175,7 @@ class BacklogIssuesWithMilestone {
   final List<BacklogIssue> issues;
   final int sprintStoryPoints;
   final int totalStoryPoints;
+  final bool isForecast;
 
-  const BacklogIssuesWithMilestone(this.milestone, this.issues, this.sprintStoryPoints, this.totalStoryPoints);
+  const BacklogIssuesWithMilestone(this.milestone, this.issues, this.sprintStoryPoints, this.totalStoryPoints, this.isForecast);
 }

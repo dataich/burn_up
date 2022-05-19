@@ -5,7 +5,7 @@ import 'package:burn_up/entities/backlog_issue_type.dart';
 import 'package:burn_up/entities/backlog_project.dart';
 import 'package:burn_up/entities/backlog_milestone.dart';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:http/http.dart' as http;
 
 abstract class IBacklogIssuesRepository {
@@ -19,15 +19,15 @@ abstract class IBacklogIssuesRepository {
 }
 
 class BacklogRepository extends IBacklogIssuesRepository {
-  String backlogApiHost = dotenv.get('BACKLOG_API_HOST');
-  String apiKey = dotenv.get('BACKLOG_API_KEY');
-  String projectKey = dotenv.get('BACKLOG_PROJECT_KEY');
+  String backlogDomain = Settings.getValue("domain", "");
+  String apiKey = Settings.getValue("apiKey", "");
+  String projectKey = Settings.getValue("projectKey", "");
 
   Future<http.Response> _fetch(String path, Map<String, dynamic>? params) async {
     final paramsWithApiKey = params ?? {};
     paramsWithApiKey['apiKey'] = apiKey;
 
-    final url = Uri.https(backlogApiHost, '/api/v2$path', paramsWithApiKey);
+    final url = Uri.https(backlogDomain, '/api/v2$path', paramsWithApiKey);
 
     return http.get(url);
   }
