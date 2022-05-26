@@ -1,16 +1,53 @@
-# burn_up
+# Burn Up
 
-A new Flutter project.
+Inspired by [shomatan/backlog-burnup](https://github.com/shomatan/backlog-burnup)
 
-## Getting Started
+![](./docs/images/burn_up_chart.png)
 
-This project is a starting point for a Flutter application.
+## Development
 
-A few resources to get you started if this is your first Flutter project:
+### Install dependencies
+```
+$ flutter pub get
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Generate entities using freezed
+```
+$ flutter pub run build_runner build
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Run
+```
+$ flutter run
+```
+
+## Usage
+- Click the gear icon on the right-top to open settings
+- Set settings of your project
+![](./docs/images/burn_up_settings.png)
+- Restart the app (We plan to improve to apply settings without restarting.)
+
+## How it works
+
+### Milestones
+- Sprint milestone
+    - Each sprint milestones should contain `Sprint` in its name
+    - Set begin and end date to each sprint milestones. It helps to show Burn-up Chart properly.
+    - To expand the Burn Up Chart period to know when achieve the total story point, need to create enough sprint milestones.
+- Release milestone
+    - Release milestone should contain `Release` in its name.
+
+### Issues
+All issues should have two milestones, release milestone and sprint milestone.
+
+> e.g `Issue 1` has `Project A - Release` and `Project A - Sprint 0` milestones.
+> 
+
+## Todo
+### Features
+- Apply settings without restarting
+- Select a project and an issue type using a dropdown
+
+### Development
+- Add unit tests
+- Refactor a bloc architecture
